@@ -1,0 +1,339 @@
+This a derived work from Stefano Zacchiroli who create the vimCU found in www.vim.org.
+This is the reference manual for those interesting in the inner working mechanism of the
+vimCU2.
+
+History:
+I use vim -> emacs -> vim.
+After sometimes of using vim and unsatisfy some functions. I changed to emacs school.
+It has very nice features. Especially the repl mode. It makes me in no return mode.
+Any good programming language without a repl mode will be a design error.
+In the repl mode of emacs, it inspires me a lot about testing and comment of codes.
+That make the block mode in vimCU2. 
+
+The NERD commenter is very good, much better than vimCU2 in order of 10 of difference.
+Everywhere is nearly perfect but one. When I use the multiline comments in Lua.
+It failed to uncomment the code. I post an issue at the github of the NERD comment.
+After search some other related isssues, I discovered that another programming language has
+the same problem, matlab, it use the %{ %} for multiline comments. But when uncomment,
+it gets the same problem, something not cleaning well. After investigation into the source 
+code of the NERD. I found that it is the function which detects what is an left comment or leftalt
+comment. It failed to find to correct left comment when the left and leftalt are using the same
+character at first few letters.
+May be an example is more clear for the situation:
+in C:
+
+//  single line in C/C++
+/* multiline
+	in C
+*/
+
+is no problem for the function to detect the difference in a line, since the function use '//'
+and '/*' to determine a single line or multiline.
+But in lua or matlab:
+-- single line in lua
+--[[
+	multilines in lua
+--]] 
+
+% single line in matlab
+%{
+	multilines in matlab
+%}
+
+The detecting function find -- or % and --]] or %}, it use remove these marks. It don't find
+further --[[ or %{ is higher priority than --. So, my suggestions, a priority betwwen different
+comment is required in multiline comment mode. Even intrinicated.
+
+
+Purpose of the reference manual:
+To point out some programming tricks used in the script and to understanding the principle of
+the comment/uncomment mechanism.
+
+Functions in the script:
+
+*****************************
+SingleLineComment(lineno):
+*****************************
+Purpose:
+Given a line number( lineno ), the function try to comment out the line with respective mark(s).
+function to use: getline, substitute, setline.
+Principle:
+1. get the content of the line
+2. change the beginning of line with comment beginning mark
+3. change the end of line with comment ending mark
+4. replace the original line with the changed content.
+
+Example of comment of a line:
+In C:
+original line: int a = 10;
+change of a copy of original line:
+=> int a = 10
+=> /* int a = 10;
+=> /* int a = 10; */
+save the copy to the original position
+
+**********************************
+MultiLineComment(line1, line2):
+**********************************
+purpose:
+Add the comment beginning mark and comment ending mark to the enclose from line1 to line 2.
+
+Principle:
+1. check if the comment mode is multi or single, if single:
+  setup an index for comment the lines one by one.
+	while not the end of multi lines (line2)
+  	comment the line at index by calling the comment function defined
+		increase the index
+    loop back the the while 
+
+7.if comment mode is multi:
+	append an comment ending mark next to line2. (end of multi lines)
+	append an comment beginning mark before the line1(aLline1-1). (begin of multi lines)
+Notes:	
+Why to append the mark at the end (line2) first , then at the beginning (line1).
+If add at line1 first, the line2 is no more as the original line but moved down one.
+An additional calculation is required to complete the job.
+In the same principle, when uncomment the multi lines, uncomment the end mark first, then
+the beginning mark, no addition calculation is required.
+Example of comment of lines:
+In C:
+original lines: 
+int a = 10;
+int b = 2;
+
+Single line mode:
+=>
+/* int a = 10; */
+int b = 2;
+
+=>
+/* int a = 10; */
+/* int b = 2; */
+
+Multi line mode:
+=>
+int a = 10
+int b = 2;
+*/
+
+=>
+/*
+int a = 10
+int b = 2;
+*/
+
+
+**********************************
+SingleLineUnComment(lineno)
+**********************************
+purpose: remove the comment mark in the line at lineno
+Principle:
+1. get the content of the line
+2. remove the comment beginning mark at bol
+3. remove the comment ending mark at eol
+4. replace the original line at lineno with the modified content
+Example of comment of a line:
+=> /* int a = 10; */
+=> int a = 10; */
+=> int a = 10;
+
+
+**********************************
+MultiLineUnComment(line1, line2):
+**********************************
+purpose: uncomment several lines at once
+Principle:
+1. check if the comment mode is multi or single, if single:
+  setup an index for uncomment the lines one by one.
+	while not the end of multi lines (line2)
+  	uncomment the line at index by calling the uncomment function defined
+		increase the index
+    loop back the the while 
+
+7.if comment mode is multi:
+	remove the whole line at line2. (end of multi lines)
+	remove the whole line at line1. (begin of multi lines)
+
+Example of uncomment of lines:
+In C:
+original lines: 
+/* int a = 10; */
+/* int b = 2; */
+
+Single line mode:
+=>
+int a = 10; 
+/* int b = 2; */
+
+=>
+int a = 10;
+int b = 2;
+
+Multi line mode:
+=>
+/*
+int a = 10
+int b = 2;
+*/
+
+=>
+/*
+int a = 10
+int b = 2;
+
+=>
+int a = 10;
+int b = 2;
+
+
+
+**********************************
+Comment(line1, line2)
+**********************************
+purpose: As a delegate for calling SingleLineComment / MultiLineComment function
+Principle:
+1. if line1 and line2 are the same:
+2.	call function to comment the line
+3. line1 and line2 not the same:
+4.  call function to coment the lines
+
+
+**********************************
+UnComment(line1, line2)
+**********************************
+purpose: As a delegate for calling UnComment / MultiLineUnComment function
+Principle:
+1. if line1 and line2 are the same:
+2.	call function to uncomment the line
+3. line1 and line2 not the same:
+4.  call function to uncomment the lines
+
+
+**********************************
+MatchType(list)
+**********************************
+purpose: To find the type of the file being edited in the current buffer
+Principle:
+	use function index to find any file type string in the list
+	&ft => get the filetype name in use
+	or &filetype
+
+
+**********************************
+GetCommentStyle()
+**********************************
+purpose: Get the comment style of the current file to use
+Principle:
+It compares by a series of if/elseif/endif to find what the comment style to use.
+Finally if not found, return txt style, which is not comment at all.
+Notes:
+It's quite inefficient by this way. A better way is to use dictionary(hast) method.
+If new programming language is addes, this function should be modified.
+Any suggestion/solution is welcome to solve this problem. It's not my own project.
+I wish anybody can contribute and make it more elegant but comprehensive by any beginner
+to understand the codes.
+
+**********************************
+SetCommentMarks()
+**********************************
+purpose: Change the comment begin/end mark for different programming language. It groups 
+different programming langauge with the same comment begin/end mark. If two languages with the same Single Comment mark but different multi comment mark, they are not in the same group.
+Principle:
+We set the single/multi  comment begin/end mark for different groups of programming langauges.
+New programming langauge will near to modify this also.
+
+**********************************
+command! -range Comment call Comment(<line1>,<line2>)
+**********************************
+purpose: define the function Commment(...) to a command called Comment which get the parameters as start and
+end of lines.
+Principle:
+-range in command! for acquire the parameters line1 and line2 for the function Comment to use.
+
+**********************************
+command! -range UnComment call UnComment(<line1>,<line2>)
+**********************************
+purpose: define the function UnCommment(...) to a command called Uncomment which get the parameters as start and
+end of lines.
+Principle:
+-range in command! for acquire the parameters line1 and line2 for the function UnComment to use.
+
+
+**********************************
+let g:CommentStyleXXX
+**********************************
+purpose: used by function GetCommentStyle to determine what comment style be used
+Principle:
+Up to now, only the first of the each list is used  to determine the comment style.
+The remain is for reference only. So if any new language is added, It's better to modify one
+of them than create a new one. Save effort and error.
+
+
+**********************************
+let b:CommentType = "m"
+**********************************
+purpose: Set the default comment type mode, Single or Multi
+Principle:
+Comment this and uncomment the "s" line if you prefer the single line mode.
+
+**********************************
+let b:endOfCommentSingle = ""
+let b:beginOfCommentSingle = ""
+**********************************
+purpose: for prevent any error if the file type cannot be determine by the function or Vim
+Principle:
+It may be redunant as in the function SetCommentMarks() already do the job.
+But who knows!
+
+**********************************
+au BufReadPost,BufNewFile,BufCreate * call SetCommentMarks()
+**********************************
+purpose: Set the event trigger mechanism in Vim
+Principle:
+au or autocmd, the trigger event command in Vim
+BufReadPost, ... : events which trigger the command
+* : any file type, for use with the events BufReadPost ...
+call SetCommentMarks() : action to do when the event is happened
+
+**********************************
+map ;; : Comment<RETURN>
+**********************************
+purpose: call the command Comment when the key ';;' is pressed in normal/visual mode
+Principle: 
+common shortcut method in Vim to call any function
+
+**********************************
+map ;k vip:Comment<RETURN>
+**********************************
+purpose: Comment a block of code
+Principle:
+To comment a block of code without using visual mode. 
+A block is a single or multi lines of code without any empty lines between them.
+It is a good practice to add some single comment line to fill the gap of empty line.
+So that the block comment can  do the job.
+Example:
+in C:
+
+int five() {
+
+	return 5;
+}
+
+can not be block comment by ;k
+
+int five() {
+//
+	return 5;
+}
+
+or
+
+int five() {
+;
+	return 5;
+}
+
+can be block comment by ;k
+
+
+

@@ -1,0 +1,45 @@
+Installation:
+copy the source file vimCU2.vim to .vim/plugin 
+
+Usage:
+keybindings:
+normal mode:
+;;     comment a line
+;u     uncomment a line
+;k     comment a block of codes
+;uk    uncomment a block of codes
+
+visual mode:
+;;     comment selected line(s)
+;u     uncomment selected line(s)
+
+
+Faq:
+Ask:
+How to add a language that is not supported yet in VimCU2.
+Ans:
+
+1.
+Add filetype in .vim/ftdetect as:
+cat mylang.vim
+au BufREad,BufNewFile *.myextension set filetype=mylang
+
+2.
+Add/modify VimCU2.vim in .vim/plugin/vimCU2.vim
+let g:CommentStyleMyLanguage=[ "mylang" ]
+
+in function SetCommentMarks():
+add:
+elseif ... 
+as example from the other language.
+
+in function GetCommentSylte()
+also add:
+elseif ... 
+as example from the other language.
+
+Ask:
+Why so crumsy to add a language?
+Ans:
+Any good solution/suggestions is welcome!
+
